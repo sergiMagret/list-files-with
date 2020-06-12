@@ -1,33 +1,38 @@
 #!/bin/bash
-
+#
 # Sergi Magret Goy - UdG - 20-03-2019
 #
 # lfw - List Files With
 #
 # lfw [-d] [-p] [-o] [-n] [-s]
-# -d directoriInicial: 	indica des de quin directori s'ha de començar a buscar, adment qualsevol format de directori
+# -d directoriInicial: 	indicates from which directory the script should start searching
+#						if it's not set, starts with the actual directory
 #
-# -p permisos:			indica quins permisos s'han de buscar, p2 en aquesta versió només llista directoris
-#						per tant un format de permisos a buscar correcte hauria de començar amb "d---------"
+# -p permisos:			indicates which permissions should be looked for, ldw at this version only lists directories,
+# 						so a good format of permissions to search for would start with "d---------"
+#						if not set, searches for permissions "drwxrwxrwx"
 #
-# -o:					indica si s'han de mirar directoris ocults o no, directoris que comencin amb '.'
+# -o: 					indicates if the hidden directories should be searched or not, the hidden directories are the 
+# 						ones that start with '.'
+#						if not set, script does not search in that directories
 #
-# -n propietari:		indica de quin propietari s'han de buscar els directoris
+# -n propietari:		indicates who owns the directories listed/searched
+#						if not set lists directories with any owner
 #
-# -s fitxer:			indica a quin fitxer es redirecciona la sortida del programa, també es pot cridar sense aquest
-#						parametre i utilitzar la redireccio p2 > fitxer
+# -s fitxer:			indicates to which file the output shoud be redirected to, the script can also be called without
+#						this parameter and use the redirection "> file"
 
 # -----------------------------------------------------------------------------------------------------------------------
 
-# Valors per defecte de les opcions i variables globals de l'script que s'utilitzaran
-directori=`pwd`			# Directori actual	
-dirComencar=.			# Directori on es comença a mirar, inicialment és el '.' per començar a mirar la carpeta actual
-permisos=drwxrwxrwx		# Per defecte es buscaran directoris amb tots els permisos
-propietari=0 			# 0-> no es comprovaran els propietaris, 1-> es comprovaran els propietaris
-ocultes=0				# 0 -> no es miren les carpetes ocultes, 1 -> es miren les carpetes ocultes
-fSortida=0				# 0-> no es redirecciona a cap fitxer, altrament -> es redirecciona al fitxer amb el seu valor
+# Default values that will be used
+directori=`pwd`			# Current directory
+dirComencar=.			# Directory to start searching, by default is '.' to start searching in the current directory
+permisos=drwxrwxrwx		# By default the script searches for directories with all permissions
+propietari=0 			# 0 -> owners are NOT checked, 1 -> owners are checked
+ocultes=0				# 0 -> hidden directories are NOT searched, 1 -> hidden directories are searched
+fSortida=0				# 0 -> do NOT redirect the output to any file, otherwise -> redirect the output to the file in this variable
 
-# Selecció d'opcions
+# Options used
 
 while [[ $# -ge 1 ]]
 do
@@ -91,7 +96,7 @@ function llistar(){
 	fi
 	
 	return $res 	# Es retorna el resultat de comanda el grep
-				# Si el grep ha trobat $permisos en alguna linea retornarà 0, sino 1
+					# Si el grep ha trobat $permisos en alguna linea retornarà 0, sino 1
 }
 
 function buscar(){	
