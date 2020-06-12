@@ -1,0 +1,173 @@
+#!/bin/bash
+
+# Sergi Magret Goy - UdG - 20-03-2019
+#
+# lfw - List Files With
+#
+# lfw [-d] [-p] [-o] [-n] [-s]
+# -d directoriInicial: 	indica des de quin directori s'ha de començar a buscar, adment qualsevol format de directori
+#
+# -p permisos:			indica quins permisos s'han de buscar, p2 en aquesta versió només llista directoris
+#						per tant un format de permisos a buscar correcte hauria de començar amb "d---------"
+#
+# -o:					indica si s'han de mirar directoris ocults o no, directoris que comencin amb '.'
+#
+# -n propietari:		indica de quin propietari s'han de buscar els directoris
+#
+# -s fitxer:			indica a quin fitxer es redirecciona la sortida del programa, també es pot cridar sense aquest
+#						parametre i utilitzar la redireccio p2 > fitxer
+
+# -----------------------------------------------------------------------------------------------------------------------
+
+# Valors per defecte de les opcions i variables globals de l'script que s'utilitzaran
+directori=`pwd`			# Directori actual	
+dirComencar=.			# Directori on es comença a mirar, inicialment és el '.' per començar a mirar la carpeta actual
+permisos=drwxrwxrwx		# Per defecte es buscaran directoris amb tots els permisos
+propietari=0 			# 0-> no es comprovaran els propietaris, 1-> es comprovaran els propietaris
+ocultes=0				# 0 -> no es miren les carpetes ocultes, 1 -> es miren les carpetes ocultes
+fSortida=0				# 0-> no es redirecciona a cap fitxer, altrament -> es redirecciona al fitxer amb el seu valor
+
+# Selecció d'opcions
+
+while [[ $# -ge 1 ]]
+do
+	if [[ "$1" = "-d" ]]
+	then
+		shift
+		dirComencar=$1
+	elif [[ "$1" = "-p" ]]
+	then
+		shift
+		permisos=$1
+	elif [[ "$1" = "-n" ]]
+	then
+		shift
+		propietari=$1
+	elif [[ "$1" = "-o" ]]
+	then
+		ocultes=1
+	elif [[ "$1" = "-s" ]]
+	then
+		shift
+		fSortida="$1"
+	fi
+	shift
+done
+
+function llistar(){
+	IFS='/' # Com que totes les lines acabaran amb '/' posem com a separador '/'
+	if [[ $ocultes -eq 0 ]]
+	then
+		export directoris=`ls -ld */ 2>/dev/null | tr -s ' '` # Només les que NO comencen per '.'
+	else
+		export directoris=`ls -ld .[^.]*/ 2>/dev/null | tr -s ' '; ls -ld */ 2>/dev/null | tr -s ' ';`
+		# Totes les carpetes excepte les "." i ".."
+	fi
+	# La variable $directoris s'exporta per tal de que les altres funcions i l'script puguin veure el contingut
+	# d'aquesta variable i aixi no haver de llistar altre cop, sino treballar directament amb els directoris de la variable
+
+	if [[ "$propietari" != "0" ]]
+	then
+		dirsMostrar=`echo $directoris | grep $permisos | grep $propietari`
+		# Es filtra per els permisos i per el propietari i es redirecciona a la sortida corresponent
+	else
+		dirsMostrar=`echo $directoris | grep $permisos`
+		# Es filtra només per els permisos i es redirecciona a la sortida corresponent
+	fi
+	
+	res=$? # Es guarda el resultat de l'execució de grep per saber si s'ha trobat alguna coincidencia o no
+	
+	if [[ $res = 0 ]]
+	then
+		if [[ "$fSortida" != 0 ]]
+		then
+			echo $dirsMostrar >> "$directori/$fSortida"
+			# Si s'ha de redireccionar la sortida s'envia al fitxer indicant la seva adreça absoluta i amb addició
+			# per tal de no sobreescriure el que s'havia escrit anteriorment en altres crides
+		else
+			echo $dirsMostrar
+			# Sino es mostra per pantalla actual
+		fi
+	fi
+	
+	return $res 	# Es retorna el resultat de comanda el grep
+				# Si el grep ha trobat $permisos en alguna linea retornarà 0, sino 1
+}
+
+function buscar(){	
+	cd $1 2>/dev/null
+	if [[ $? = 0 ]]		# Si s'ha pogut entrar a la carpeta actual es crida la funció llistar
+	then
+		llistar
+		
+		if [[ $? = 0 ]] # Si el llistar realment ha llistat alguna cosa, és a dir, el grep ha trobat alguna coincidencia
+		then
+			IFS=$'\n'	# Perque no separi el `pwd` per els '/' sino per salts de linea
+			if [[ "$fSortida" != 0 ]] # Si s'ha de redireccionar la sortida
+			then
+				echo "Directori llistat: " `pwd` >> "$directori/$fSortida"
+				echo "" >> "$directori/$fSortida"
+			else
+				echo "Directori llistat: " `pwd`; echo ""
+			fi
+		fi
+	else
+		return 1	# Retorna 1 per indicar que hi ha hagut un error i que no s'ha pogut accedir a la carpeta que s'intentava
+	fi
+	
+	IFS='/'		# Es torna a posar el separador per a separar les carpetes
+	for i in $directoris
+	do
+		nom=`echo $i | tr -s ' ' | tr -d '\n' | cut -d " " -f 9` 	
+		# S'agafa la variable $i amb la linea completa de la informació del directori, es treuen els espais en blanc 
+		# i despres els salts de linea, fet això ens quedem amb l'última columna (el nom de la carpeta) per passar-la 
+		# a la funció buscar i que hi intenti accedir per llistar els elements de l'interior
+		
+		buscar $nom
+		if [[ $? = 0 ]]
+		then
+			cd ..
+		fi
+	done
+	IFS=$'\n'
+	
+	return 0	# Si s'arriba aqui és perque ha fet la funció amb èxit i ha pogut entrar a la carpeta
+}
+
+
+cd $dirComencar 2>/dev/null # S'intenta entrar a la carpeta on s'ha de començar a buscar
+if [[ $? = 0 ]] # Si ha pogut accedir a la carpeta inicial
+then
+	llistar
+	
+	if [[ $? = 0 ]] # ---- Explicació del codi a la funció llistar, això és una còpia exacte -----
+	then
+		IFS=$'\n'	# Perque no separi el `pwd` per els '/' sino per salts de linea
+			if [[ "$fSortida" != 0 ]]
+			then
+				echo "Directori llistat: " `pwd` >> "$directori/$fSortida"
+				echo "" >> "$directori/$fSortida"
+			else
+				echo "Directori llistat: " `pwd`; echo ""
+			fi
+	fi
+else
+	exit 1 # Si  no s'ha pogut entrar a la carpeta inicial s'acaba l'execució de l'script amb codi d'error
+fi
+
+IFS='/'
+for i in $directoris
+do
+	nom=`echo $i | tr -s ' ' | tr -d '\n' | cut -d " " -f 9`
+	buscar $nom
+	if [[ $? = 0 ]]
+	then
+		cd ..
+	fi
+done
+
+IFS=$'\n'
+
+cd $directori 	# Finalment es torna a entrar a la carpeta des d'on s'ha cridat l'script
+
+exit 0 			# S'acaba l'script i retorna codi d'execució correcte
